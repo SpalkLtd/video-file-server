@@ -357,21 +357,14 @@ func checkETag(w http.ResponseWriter, r *http.Request, modtime time.Time) (range
 }
 
 // name is '/'-separated, not filepath.Separator.
-func serveFile(w http.ResponseWriter, r *http.Request, fs FileSystem, name string, redirect bool) {
-	const indexPage = "/index.html"
+func serveFile(w http.ResponseWriter, r *http.Request, fh *fileHandler, name string, redirect bool) {
 
-	// redirect .../index.html to .../
-	// can't use Redirect() because that would make the path absolute,
-	// which would be a problem running under StripPrefix
-	if strings.HasSuffix(r.URL.Path, indexPage) {
-		localRedirect(w, r, "./")
-		return
-	}
+	fs := fh.root
 
 	f, err := fs.Open(name)
 	if err != nil {
-		msg, code := toHTTPError(err)
-		http.Error(w, msg, code)
+		fmt.Println(name)
+		serveS3File(w, r, name, fh.s3svc)
 		return
 	}
 	defer f.Close()
@@ -383,53 +376,10 @@ func serveFile(w http.ResponseWriter, r *http.Request, fs FileSystem, name strin
 		return
 	}
 
-	if redirect {
-		// redirect to canonical path: / at end of directory url
-		// r.URL.Path always begins with /
-		url := r.URL.Path
-		if d.IsDir() {
-			if url[len(url)-1] != '/' {
-				localRedirect(w, r, path.Base(url)+"/")
-				return
-			}
-		} else {
-			if url[len(url)-1] == '/' {
-				localRedirect(w, r, "../"+path.Base(url))
-				return
-			}
-		}
-	}
-
-	// redirect if the directory name doesn't end in a slash
+	//don't deal with directories. This is for serving media files only
 	if d.IsDir() {
-		url := r.URL.Path
-		if url[len(url)-1] != '/' {
-			localRedirect(w, r, path.Base(url)+"/")
-			return
-		}
-	}
-
-	// use contents of index.html for directory, if present
-	if d.IsDir() {
-		index := strings.TrimSuffix(name, "/") + indexPage
-		ff, err := fs.Open(index)
-		if err == nil {
-			defer ff.Close()
-			dd, err := ff.Stat()
-			if err == nil {
-				name = index
-				d = dd
-				f = ff
-			}
-		}
-	}
-
-	// Still a directory? (we didn't find an index.html file)
-	if d.IsDir() {
-		if checkLastModified(w, r, d.ModTime()) {
-			return
-		}
-		dirList(w, f)
+		msg, code := toHTTPError(os.ErrNotExist)
+		http.Error(w, msg, code)
 		return
 	}
 
@@ -454,16 +404,6 @@ func toHTTPError(err error) (msg string, httpStatus int) {
 	return "500 Internal Server Error", http.StatusInternalServerError
 }
 
-// localRedirect gives a Moved Permanently response.
-// It does not convert relative paths to absolute paths like Redirect does.
-func localRedirect(w http.ResponseWriter, r *http.Request, newPath string) {
-	if q := r.URL.RawQuery; q != "" {
-		newPath += "?" + q
-	}
-	w.Header().Set("Location", newPath)
-	w.WriteHeader(http.StatusMovedPermanently)
-}
-
 // ServeFile replies to the request with the contents of the named
 // file or directory.
 //
@@ -477,7 +417,7 @@ func localRedirect(w http.ResponseWriter, r *http.Request, newPath string) {
 // ends in "/index.html" to the same path, without the final
 // "index.html". To avoid such redirects either modify the path or
 // use ServeContent.
-func ServeFile(w http.ResponseWriter, r *http.Request, name string) {
+func ServeFile(w http.ResponseWriter, r *http.Request, name string, s3svc *s3.S3) {
 	if containsDotDot(r.URL.Path) {
 		// Too many programs use r.URL.Path to construct the argument to
 		// serveFile. Reject the request under the assumption that happened
@@ -488,7 +428,10 @@ func ServeFile(w http.ResponseWriter, r *http.Request, name string) {
 		return
 	}
 	dir, file := filepath.Split(name)
-	serveFile(w, r, Dir(dir), file, false)
+	serveFile(w, r, &fileHandler{
+		root:  Dir(dir),
+		s3svc: s3svc,
+	}, file, false)
 }
 
 func containsDotDot(v string) bool {
@@ -531,7 +474,7 @@ func (f *fileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		upath = "/" + upath
 		r.URL.Path = upath
 	}
-	serveFile(w, r, f.root, path.Clean(upath), true)
+	serveFile(w, r, f, path.Clean(upath), true)
 }
 
 // httpRange specifies the byte range to be sent to the client.
