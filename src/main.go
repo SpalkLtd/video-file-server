@@ -1,20 +1,33 @@
 package main
 
 import (
-	"net/http";
-	"fmt";
-	"log";
-	"html";
+	"log"
+	"net/http"
+
+	"github.com/aws/aws-sdk-go/service/s3"
 )
-
-
 
 func main() {
 
-	http.HandleFunc("/bar", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "Hello, %q", html.EscapeString(r.URL.Path))
-	})
+	// provider := ec2rolecreds.EC2RoleProvider{}
+	// creds, err := provider.Retrieve()
+	// if err != nil {
+	// 	panic(err.Error())
+	// }
 
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	// sess, err := session.NewSession(&aws.Config{
+	// 	Region:      aws.String("ap-southeast-2a"),
+	// 	Credentials: credentials.NewStaticCredentialsFromCreds(creds),
+	// })
+	// if err != nil {
+	// 	panic(err.Error())
+	// }
+
+	// svc := s3.New(sess)
+
+	// http.Handle("/", FileServer(Dir("public"), svc))
+	tmp := s3.S3{}
+	http.Handle("/", FileServer(Dir("public"), &tmp))
+
+	log.Fatal(http.ListenAndServe(":8090", nil))
 }
-
