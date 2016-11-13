@@ -2,7 +2,7 @@
 
 // HTTP file system request handler
 
-package main
+package spalkfs
 
 import (
 	"errors"
@@ -48,9 +48,6 @@ func (d Dir) Open(name string) (File, error) {
 	}
 	f, err := os.Open(filepath.Join(dir, filepath.FromSlash(path.Clean("/"+name))))
 	if err != nil {
-		if os.IsNotExist(err) {
-			fmt.Println("switching to s3")
-		}
 		return nil, err
 	}
 	return f, nil
