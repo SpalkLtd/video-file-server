@@ -361,7 +361,7 @@ func serveFile(w http.ResponseWriter, r *http.Request, fh *fileHandler, name str
 	f, err := fs.Open(name)
 	if err != nil {
 		fmt.Println(name)
-		serveS3File(w, r, name, fh.s3svc)
+		ServeS3File(w, r, name, fh.s3svc, fh.bucket)
 		return
 	}
 	defer f.Close()
@@ -446,8 +446,9 @@ func containsDotDot(v string) bool {
 func isSlashRune(r rune) bool { return r == '/' || r == '\\' }
 
 type fileHandler struct {
-	root  FileSystem
-	s3svc *s3.S3
+	root   FileSystem
+	s3svc  *s3.S3
+	bucket string
 }
 
 // FileServer returns a handler that serves HTTP requests
@@ -461,8 +462,8 @@ type fileHandler struct {
 // As a special case, the returned file server redirects any request
 // ending in "/index.html" to the same path, without the final
 // "index.html".
-func FileServer(root FileSystem, s3svc *s3.S3) http.Handler {
-	return &fileHandler{root, s3svc}
+func FileServer(root FileSystem, s3svc *s3.S3, bucket string) http.Handler {
+	return &fileHandler{root, s3svc, bucket}
 }
 
 func (f *fileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {

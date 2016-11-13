@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/SpalkLtd/video-file-server/src/spalkfs"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -20,7 +21,7 @@ func main() {
 
 	svc := s3.New(sess)
 
-	http.Handle("/", FileServer(Dir("./public"), svc))
+	http.Handle("/", spalkfs.FileServer(Dir("./public"), svc, "spalk-video-archive"))
 
 	log.Fatal(http.ListenAndServe(":8663", nil))
 }

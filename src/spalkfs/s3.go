@@ -9,14 +9,15 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 )
 
-func serveS3File(rw http.ResponseWriter, req *http.Request, name string, s3svc *s3.S3) {
+func ServeS3File(rw http.ResponseWriter, req *http.Request, name string, s3svc *s3.S3, bucket string) {
 
 	params := s3.GetObjectInput{
-		Bucket: aws.String("spalk-video-archive"),
+		Bucket: aws.String(bucket),
 		Key:    aws.String(name),
 	}
 
 	resp, err := s3svc.GetObject(&params)
+
 	if err != nil {
 		fmt.Println(err.Error())
 		if err.Error()[:10] == "NoSuchKey:" {
