@@ -19,10 +19,18 @@ func serveS3File(rw http.ResponseWriter, req *http.Request, name string, s3svc *
 	resp, err := s3svc.GetObject(&params)
 	if err != nil {
 		fmt.Println(err.Error())
+		if err.Error()[:10] == "NoSuchKey:" {
+			http.Error(rw, "Not Found", http.StatusNotFound)
+		}
 		return
 	}
 
 	h := rw.Header()
 	h.Add("content-type", *resp.ContentType)
 	_, err = io.Copy(rw, resp.Body)
+	if err != nil {
+		fmt.Println(err.Error())
+		http.Error(rw, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
 }
