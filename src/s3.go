@@ -21,6 +21,8 @@ func serveS3File(rw http.ResponseWriter, req *http.Request, name string, s3svc *
 		fmt.Println(err.Error())
 		if err.Error()[:10] == "NoSuchKey:" {
 			http.Error(rw, "Not Found", http.StatusNotFound)
+		} else {
+			http.Error(rw, "Internal Server Error", http.StatusInternalServerError)
 		}
 		return
 	}
