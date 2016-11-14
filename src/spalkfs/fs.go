@@ -421,6 +421,7 @@ func toHTTPError(err error) (msg string, httpStatus int) {
 // use ServeContent.
 func ServeFile(w http.ResponseWriter, r *http.Request, name string, s3svc *s3.S3) {
 	w.Header().set("Cache-Control", "no-cache")
+	w.Header().set("Access-Control-Allow-Origin", "*")
 	if containsDotDot(r.URL.Path) {
 		// Too many programs use r.URL.Path to construct the argument to
 		// serveFile. Reject the request under the assumption that happened
