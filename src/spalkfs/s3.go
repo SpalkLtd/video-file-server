@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -29,6 +30,9 @@ func ServeS3File(rw http.ResponseWriter, req *http.Request, name string, s3svc *
 	}
 
 	h := rw.Header()
+	if !strings.HasSuffix(name, "m3u8") {
+		h.Set("Cache-Control", "max-age=2592000")
+	}
 	h.Add("content-type", *resp.ContentType)
 	_, err = io.Copy(rw, resp.Body)
 	if err != nil {

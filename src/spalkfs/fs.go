@@ -261,6 +261,10 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 		}
 	}
 
+	if !strings.HasSuffix(name, "m3u8") {
+		h.Set("Cache-Control", "max-age=2592000")
+	}
+
 	w.WriteHeader(code)
 
 	if r.Method != "HEAD" {
@@ -416,6 +420,7 @@ func toHTTPError(err error) (msg string, httpStatus int) {
 // "index.html". To avoid such redirects either modify the path or
 // use ServeContent.
 func ServeFile(w http.ResponseWriter, r *http.Request, name string, s3svc *s3.S3) {
+	w.Header().set("Cache-Control", "no-cache")
 	if containsDotDot(r.URL.Path) {
 		// Too many programs use r.URL.Path to construct the argument to
 		// serveFile. Reject the request under the assumption that happened
@@ -454,7 +459,7 @@ type fileHandler struct {
 
 type Handler interface {
 	http.Handler
-	GetFile(name string) (*io.Reader, error)
+	GetFile(name string) (io.ReadCloser, error)
 }
 
 // FileServer returns a handler that serves HTTP requests
@@ -473,6 +478,7 @@ func FileServer(root FileSystem, s3svc *s3.S3, bucket string) Handler {
 }
 
 func (f *fileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().set("Cache-Control", "no-cache")
 	upath := r.URL.Path
 	if !strings.HasPrefix(upath, "/") {
 		upath = "/" + upath
@@ -481,7 +487,11 @@ func (f *fileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	serveFile(w, r, f, path.Clean(upath), true)
 }
 
-func (fh *fileHandler) GetFile(path string) (*io.Reader, error) {
+func (fh *fileHandler) GetFile(path string) (io.ReadCloser, error) {
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+
 	file, fserr := fh.root.Open(path)
 	if fserr != nil {
 		return file, nil
@@ -492,7 +502,7 @@ func (fh *fileHandler) GetFile(path string) (*io.Reader, error) {
 		Key:    aws.String(path),
 	}
 
-	resp, s3err := s3svc.GetObject(&params)
+	resp, s3err := fh.s3svc.GetObject(&params)
 
 	if s3err != nil {
 		return resp.Body, nil
