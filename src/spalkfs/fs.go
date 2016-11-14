@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 )
 
@@ -451,6 +452,11 @@ type fileHandler struct {
 	bucket string
 }
 
+type Handler interface {
+	http.Handler
+	GetFile(name string) (*io.Reader, error)
+}
+
 // FileServer returns a handler that serves HTTP requests
 // with the contents of the file system rooted at root.
 //
@@ -462,7 +468,7 @@ type fileHandler struct {
 // As a special case, the returned file server redirects any request
 // ending in "/index.html" to the same path, without the final
 // "index.html".
-func FileServer(root FileSystem, s3svc *s3.S3, bucket string) http.Handler {
+func FileServer(root FileSystem, s3svc *s3.S3, bucket string) Handler {
 	return &fileHandler{root, s3svc, bucket}
 }
 
@@ -473,6 +479,42 @@ func (f *fileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		r.URL.Path = upath
 	}
 	serveFile(w, r, f, path.Clean(upath), true)
+}
+
+func (fh *fileHandler) GetFile(path string) (*io.Reader, error) {
+	file, fserr := fh.root.Open(path)
+	if fserr != nil {
+		return file, nil
+	}
+
+	params := s3.GetObjectInput{
+		Bucket: aws.String(fh.bucket),
+		Key:    aws.String(path),
+	}
+
+	resp, s3err := s3svc.GetObject(&params)
+
+	if s3err != nil {
+		return resp.Body, nil
+	}
+
+	// fserr and s3err and both not null
+	if os.IsNotExist(fserr) {
+		if isS3NotFound(s3err) {
+			return nil, ErrNotFound
+		} else {
+			return nil, s3err
+		}
+	} else {
+		if isS3NotFound(s3err) {
+			return nil, fserr
+		} else {
+			// both are unknown errors so construct an error message for both.
+			return nil, errors.New(fmt.Sprintf("File System Error:\n%s\n\nS3 Error:\n%s", fserr, s3err))
+		}
+	}
+
+	return nil, nil
 }
 
 // httpRange specifies the byte range to be sent to the client.
