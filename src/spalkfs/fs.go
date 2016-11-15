@@ -508,9 +508,13 @@ func (fh *fileHandler) GetFile(path string) (io.ReadCloser, error) {
 		return file, nil
 	}
 
+	bucketParts := strings.Split(fh.bucket, "/")
+	bucketName := bucketParts[0]
+	bucketPath := strings.Join(bucketParts[1:], "/")
+
 	params := s3.GetObjectInput{
-		Bucket: aws.String(fh.bucket),
-		Key:    aws.String(path),
+		Bucket: aws.String(bucketName),
+		Key:    aws.String(bucketPath + "/" + path),
 	}
 
 	resp, s3err := fh.s3svc.GetObject(&params)
