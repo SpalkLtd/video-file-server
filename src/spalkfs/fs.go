@@ -504,7 +504,7 @@ func (fh *fileHandler) GetFile(path string) (io.ReadCloser, error) {
 	}
 
 	file, fserr := fh.root.Open(path)
-	if fserr != nil {
+	if fserr == nil {
 		return file, nil
 	}
 
