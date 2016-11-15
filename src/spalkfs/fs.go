@@ -126,11 +126,11 @@ func dirList(w http.ResponseWriter, f File) {
 // Note that *os.File implements the io.ReadSeeker interface.
 func ServeContent(w http.ResponseWriter, req *http.Request, name string, modtime time.Time, content io.ReadSeeker) {
 	sizeFunc := func() (int64, error) {
-		size, err := content.Seek(0, io.SeekEnd)
+		size, err := content.Seek(0, 2) // Should be io.SeekEnd but was undefined??
 		if err != nil {
 			return 0, errSeeker
 		}
-		_, err = content.Seek(0, io.SeekStart)
+		_, err = content.Seek(0, 0) // Should be io.SeekStart but was undefined??
 		if err != nil {
 			return 0, errSeeker
 		}
@@ -171,7 +171,7 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 			var buf [sniffLen]byte
 			n, _ := io.ReadFull(content, buf[:])
 			ctype = http.DetectContentType(buf[:n])
-			_, err := content.Seek(0, io.SeekStart) // rewind to output whole file
+			_, err := content.Seek(0, 0) // Should be io.SeekStart but was undefined?? // rewind to output whole file
 			if err != nil {
 				http.Error(w, "seeker can't seek", http.StatusInternalServerError)
 				return
@@ -218,7 +218,8 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 			// A response to a request for a single range MUST NOT
 			// be sent using the multipart/byteranges media type."
 			ra := ranges[0]
-			if _, err := content.Seek(ra.start, io.SeekStart); err != nil {
+			// Should be io.SeekStart but was undefined??
+			if _, err := content.Seek(ra.start, 0); err != nil {
 				http.Error(w, err.Error(), http.StatusRequestedRangeNotSatisfiable)
 				return
 			}
@@ -241,7 +242,8 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 						pw.CloseWithError(err)
 						return
 					}
-					if _, err := content.Seek(ra.start, io.SeekStart); err != nil {
+					// Should be io.SeekStart but was undefined??
+					if _, err := content.Seek(ra.start, 0); err != nil {
 						pw.CloseWithError(err)
 						return
 					}
@@ -262,7 +264,7 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 	}
 
 	if !strings.HasSuffix(name, "m3u8") {
-		h.Set("Cache-Control", "max-age=2592000")
+		w.Header().Set("Cache-Control", "max-age=2592000")
 	}
 
 	w.WriteHeader(code)
@@ -420,7 +422,7 @@ func toHTTPError(err error) (msg string, httpStatus int) {
 // "index.html". To avoid such redirects either modify the path or
 // use ServeContent.
 func ServeFile(w http.ResponseWriter, r *http.Request, name string, s3svc *s3.S3) {
-	w.Header().set("Cache-Control", "no-cache")
+	w.Header().Set("Cache-Control", "no-cache")
 	if containsDotDot(r.URL.Path) {
 		// Too many programs use r.URL.Path to construct the argument to
 		// serveFile. Reject the request under the assumption that happened
@@ -478,7 +480,16 @@ func FileServer(root FileSystem, s3svc *s3.S3, bucket string) Handler {
 }
 
 func (f *fileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	w.Header().set("Cache-Control", "no-cache")
+	if r.Method == "OPTIONS" {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Headers", "x-playback-session-id")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+		w.Header().Set("Cache-Control", "max-age=600")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-cache")
 	upath := r.URL.Path
 	if !strings.HasPrefix(upath, "/") {
 		upath = "/" + upath

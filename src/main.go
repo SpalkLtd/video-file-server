@@ -21,7 +21,7 @@ func main() {
 
 	svc := s3.New(sess)
 
-	http.Handle("/", spalkfs.FileServer(Dir("./public"), svc, "spalk-video-archive"))
+	http.Handle("/", spalkfs.FileServer(spalkfs.Dir("./public"), svc, "spalk-video-archive"))
 
 	log.Fatal(http.ListenAndServe(":8663", nil))
 }
