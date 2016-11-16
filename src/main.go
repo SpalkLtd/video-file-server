@@ -8,9 +8,14 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	gobrake "gopkg.in/airbrake/gobrake.v2"
 )
 
 func main() {
+	airbrake := gobrake.NewNotifier(1234567, "d8b27488dbca7306ad182ff2db2f53d4")
+	airbrake.SetHost("https://errbit.spalk.co")
+	defer airbrake.Close()
+	defer airbrake.NotifyOnPanic()
 
 	sess, err := session.NewSession(&aws.Config{
 		Region: aws.String("ap-southeast-2"),
