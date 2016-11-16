@@ -26,7 +26,7 @@ func main() {
 
 	svc := s3.New(sess)
 
-	http.Handle("/", spalkfs.FileServer(spalkfs.Dir("./public"), svc, "spalk-video-archive/public"))
+	http.Handle("/", spalkfs.FileServer(spalkfs.Dir("."), svc, "spalk-video-archive"))
 
 	err = http.ListenAndServeTLS("0.0.0.0:443", os.Getenv("CERT_FILE_PATH"), os.Getenv("KEY_FILE_PATH"),nil)
 	if err != nil {

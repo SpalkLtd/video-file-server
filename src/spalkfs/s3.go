@@ -15,10 +15,10 @@ func ServeS3File(rw http.ResponseWriter, req *http.Request, name string, s3svc *
 	bucketParts := strings.Split(bucket, "/")
 	bucketName := bucketParts[0]
 	bucketPath := strings.Join(bucketParts[1:], "/")
-
+	fmt.Println(bucketPath  + name)
 	params := s3.GetObjectInput{
 		Bucket: aws.String(bucketName),
-		Key:    aws.String(bucketPath + "/" + name),
+		Key:    aws.String(bucketPath + name),
 	}
 
 	resp, err := s3svc.GetObject(&params)
