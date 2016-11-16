@@ -519,7 +519,7 @@ func (fh *fileHandler) GetFile(path string) (io.ReadCloser, error) {
 
 	resp, s3err := fh.s3svc.GetObject(&params)
 
-	if s3err != nil {
+	if s3err == nil {
 		return resp.Body, nil
 	}
 
