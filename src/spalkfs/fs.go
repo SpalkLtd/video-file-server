@@ -515,7 +515,7 @@ func (fh *fileHandler) GetFile(path string) (io.ReadCloser, error) {
 
 	params := s3.GetObjectInput{
 		Bucket: aws.String(bucketName),
-		Key:    aws.String(bucketPath + "/" + path),
+		Key:    aws.String(bucketPath + path),
 	}
 
 	resp, s3err := fh.s3svc.GetObject(&params)
