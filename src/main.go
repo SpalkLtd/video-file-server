@@ -28,5 +28,8 @@ func main() {
 
 	http.Handle("/", spalkfs.FileServer(spalkfs.Dir("./public"), svc, "spalk-video-archive/public"))
 
-	log.Fatal(http.ListenAndServe(":8663", nil))
+	err = http.ListenAndServeTLS("0.0.0.0:443", os.Getenv("CERT_FILE_PATH"), os.Getenv("KEY_FILE_PATH"), rootRouter)
+	if err != nil {
+		panic(err.Error())
+	}
 }
