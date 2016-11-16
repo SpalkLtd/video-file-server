@@ -1,8 +1,8 @@
 package main
 
 import (
-	"log"
 	"net/http"
+	"os"
 
 	"github.com/SpalkLtd/video-file-server/src/spalkfs"
 	"github.com/aws/aws-sdk-go/aws"
@@ -28,7 +28,7 @@ func main() {
 
 	http.Handle("/", spalkfs.FileServer(spalkfs.Dir("./public"), svc, "spalk-video-archive/public"))
 
-	err = http.ListenAndServeTLS("0.0.0.0:443", os.Getenv("CERT_FILE_PATH"), os.Getenv("KEY_FILE_PATH"), rootRouter)
+	err = http.ListenAndServeTLS("0.0.0.0:443", os.Getenv("CERT_FILE_PATH"), os.Getenv("KEY_FILE_PATH"),nil)
 	if err != nil {
 		panic(err.Error())
 	}
