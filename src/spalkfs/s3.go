@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -35,6 +36,8 @@ func ServeS3File(rw http.ResponseWriter, req *http.Request, name string, s3svc *
 
 	h := rw.Header()
 	if !strings.HasSuffix(name, "m3u8") {
+		cacheUntil := time.Now().AddDate(0, 0, 30).Format(http.TimeFormat)
+		h.Set("Expires",cacheUntil)
 		h.Set("Cache-Control", "max-age=2592000")
 	}
 	h.Add("content-type", *resp.ContentType)

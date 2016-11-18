@@ -264,6 +264,8 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 	}
 
 	if !strings.HasSuffix(name, "m3u8") {
+		cacheUntil := time.Now().AddDate(0, 0, 30).Format(http.TimeFormat)
+		w.Header().Set("Expires",cacheUntil)
 		w.Header().Set("Cache-Control", "max-age=2592000")
 	}
 
@@ -485,6 +487,8 @@ func (f *fileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Headers", "x-playback-session-id")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
+		cacheUntil := time.Now().Add(time.Duration(600)).Format(http.TimeFormat)
+		w.Header().Set("Expires",cacheUntil)
 		w.Header().Set("Cache-Control", "max-age=600")
 		w.WriteHeader(http.StatusOK)
 		return
