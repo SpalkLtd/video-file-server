@@ -28,4 +28,4 @@ Configuration of the executable is done using with following environment variabl
 
 ##Build
 
-This application is built by running `go build main.go -o \<desired file name>` in the *src* directory or build an run using `go run main.go`
+This application is built by running `go build main.go -o \<desired file name>` in the *src* directory or build and run using `go run main.go`
