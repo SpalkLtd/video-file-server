@@ -266,7 +266,7 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 
 	if !strings.HasSuffix(name, "m3u8") {
 		cacheUntil := time.Now().AddDate(0, 0, 30).Format(http.TimeFormat)
-		w.Header().Set("Expires",cacheUntil)
+		w.Header().Set("Expires", cacheUntil)
 		w.Header().Set("Cache-Control", "max-age=2592000")
 	}
 
@@ -391,8 +391,9 @@ func serveFile(w http.ResponseWriter, r *http.Request, fh *fileHandler, name str
 
 	f, err := fs.Open(name)
 	if err != nil {
-		fmt.Println(name)
-		ServeS3File(w, r, name, fh.s3svc, fh.bucket)
+		if os.Getenv("SPALK_FS_DISABLE_S3_FAILOVER") != "" {
+			ServeS3File(w, r, name, fh.s3svc, fh.bucket)
+		}
 		return
 	}
 	defer f.Close()
@@ -511,7 +512,7 @@ func (f *fileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
 		cacheUntil := time.Now().Add(time.Duration(600)).Format(http.TimeFormat)
-		w.Header().Set("Expires",cacheUntil)
+		w.Header().Set("Expires", cacheUntil)
 		w.Header().Set("Cache-Control", "max-age=600")
 		w.WriteHeader(http.StatusOK)
 		return
@@ -531,6 +532,8 @@ func (fh *fileHandler) GetFile(path string) (io.ReadCloser, error) {
 		path = "/" + path
 	}
 
+	var fserr, s3err error = nil
+
 	file, fserr := fh.root.Open(path)
 	if fserr == nil {
 		return file, nil
@@ -545,10 +548,12 @@ func (fh *fileHandler) GetFile(path string) (io.ReadCloser, error) {
 		Key:    aws.String(bucketPath + path),
 	}
 
-	resp, s3err := fh.s3svc.GetObject(&params)
+	if os.Getenv("SPALK_FS_DISABLE_S3_FAILOVER") != "" {
+		resp, s3err := fh.s3svc.GetObject(&params)
 
-	if s3err == nil {
-		return resp.Body, nil
+		if s3err == nil {
+			return resp.Body, nil
+		}
 	}
 
 	// fserr and s3err and both not null
@@ -559,7 +564,7 @@ func (fh *fileHandler) GetFile(path string) (io.ReadCloser, error) {
 			return nil, s3err
 		}
 	} else {
-		if isS3NotFound(s3err) {
+		if isS3NotFound(s3err) || s3err == nil {
 			return nil, fserr
 		} else {
 			// both are unknown errors so construct an error message for both.

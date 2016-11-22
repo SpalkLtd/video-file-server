@@ -13,7 +13,7 @@ import (
 
 func main() {
 	airbrake := gobrake.NewNotifier(1234567, "d8b27488dbca7306ad182ff2db2f53d4")
-	airbrake.SetHost("https://errbit.spalk.co")
+	airbrake.SetHost(os.Getenv("ERRBIT_HOST"))
 	defer airbrake.Close()
 	defer airbrake.NotifyOnPanic()
 
@@ -28,7 +28,7 @@ func main() {
 
 	http.Handle("/", spalkfs.FileServer(spalkfs.Dir("."), svc, "spalk-video-archive"))
 
-	err = http.ListenAndServeTLS("0.0.0.0:443", os.Getenv("CERT_FILE_PATH"), os.Getenv("KEY_FILE_PATH"),nil)
+	err = http.ListenAndServeTLS("0.0.0.0:443", os.Getenv("CERT_FILE_PATH"), os.Getenv("KEY_FILE_PATH"), nil)
 	if err != nil {
 		panic(err.Error())
 	}

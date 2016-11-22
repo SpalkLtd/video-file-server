@@ -1,0 +1,1 @@
+export SPALK_FS_DISABLE_S3_FAILOVER="" #set to contain anything other than "" to disable failover to S3
