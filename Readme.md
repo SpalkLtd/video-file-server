@@ -8,12 +8,14 @@ to run a static file server configured using environment varibles. The *spalkfs*
 to provide this functionality alongside application logic or more detaild tracking (an example of this can be found in the 
 [listener-handler](https://github.com/SpalkLtd/listener-handler) )
 
+##Configuration
+
 Configuration of the executable is done using with following environment variables (with defaults):
 
 | Key | Default value | Notes |
 | --- | ------------- | ----- |
 | SPALK_FS_DISABLE_S3_FAILOVER | "" | set to contain anything other than "" to disable failover to S3 |
-| SPALK_FS_ORIGIN_RESTRICT     | "*" | Sets the http "Access-Control-Allow-Origin" http header |
+| SPALK_FS_ORIGIN_RESTRICT     | "\*" | Sets the http "Access-Control-Allow-Origin" http header |
 | S3_REGION                    | "ap-southeast-2" |  |
 | VFS_ERRBIT_KEY               | "d8b27488dbca7306ad182ff2db2f53d4" | this is the dev project key for errbit |
 | VFS_S3_BUCKET_FAILOVER       | "spalk-video-archive" | S3 bucket. Authentication is done using IAM roles |
@@ -23,3 +25,7 @@ Configuration of the executable is done using with following environment variabl
 | VFS_KEY_FILE_PATH            | "" |  |
 | VFS_MEDIA_DIR                | "public" | the binary should be deployed to the parent of the pblic directory where the media is stored |
 
+
+##Build
+
+This application is built by running `go build main.go -o \<desired file name>` in the *src* directory or build an run using `go run main.go`
