@@ -506,8 +506,12 @@ func FileServer(root FileSystem, s3svc *s3.S3, bucket string) Handler {
 }
 
 func (f *fileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	allowOrigin := os.Getenv("SPALK_FS_ORIGIN_RESTRICT")
+	if allowOrigin == "" {
+		allowOrigin = "*"
+	}
 	if r.Method == "OPTIONS" {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Origin", allowOrigin)
 		w.Header().Set("Access-Control-Allow-Headers", "x-playback-session-id")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
@@ -517,7 +521,8 @@ func (f *fileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	w.Header().Set("Access-Control-Allow-Origin", allowOrigin)
 	w.Header().Set("Cache-Control", "no-cache")
 	upath := r.URL.Path
 	if !strings.HasPrefix(upath, "/") {

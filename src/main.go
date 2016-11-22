@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 
@@ -12,13 +13,13 @@ import (
 )
 
 func main() {
-	airbrake := gobrake.NewNotifier(1234567, "d8b27488dbca7306ad182ff2db2f53d4")
+	airbrake := gobrake.NewNotifier(1234567, os.Getenv("VFS_ERRBIT_KEY"))
 	airbrake.SetHost(os.Getenv("ERRBIT_HOST"))
 	defer airbrake.Close()
 	defer airbrake.NotifyOnPanic()
 
 	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String("ap-southeast-2"),
+		Region: aws.String(os.Getenv("S3_REGION")),
 	})
 	if err != nil {
 		panic(err.Error())
@@ -26,9 +27,14 @@ func main() {
 
 	svc := s3.New(sess)
 
-	http.Handle("/", spalkfs.FileServer(spalkfs.Dir("."), svc, "spalk-video-archive"))
-
-	err = http.ListenAndServeTLS("0.0.0.0:443", os.Getenv("CERT_FILE_PATH"), os.Getenv("KEY_FILE_PATH"), nil)
+	http.Handle("/", spalkfs.FileServer(spalkfs.Dir(os.Getenv("VFS_MEHDIA_DIR")), svc, os.Getenv("VFS_S3_BUCKET_FAILOVER")))
+	certpath, keypath := os.Getenv("LH_CERT_FILE_PATH"), os.Getenv("LH_KEY_FILE_PATH")
+	if certpath == "" || keypath == "" {
+		fmt.Println("insufficient signing info found. Defaulting to http on localhost")
+		err = http.ListenAndServe(os.Getenv("VFS_HTTP_BIND_ADDRESS"), nil)
+	} else {
+		err = http.ListenAndServeTLS(os.Getenv("VFS_HTTPS_BIND_ADDRESS"), os.Getenv("VFS_CERT_FILE_PATH"), os.Getenv("VFS_KEY_FILE_PATH"), nil)
+	}
 	if err != nil {
 		panic(err.Error())
 	}

@@ -1,1 +1,10 @@
 export SPALK_FS_DISABLE_S3_FAILOVER="" #set to contain anything other than "" to disable failover to S3
+export SPALK_FS_ORIGIN_RESTRICT="*"
+export S3_REGION="ap-southeast-2"
+export VFS_ERRBIT_KEY="d8b27488dbca7306ad182ff2db2f53d4"
+export VFS_S3_BUCKET_FAILOVER="spalk-video-archive"
+export VFS_HTTPS_BIND_ADDRESS="0.0.0.0:443"
+export VFS_HTTP_BIND_ADDRESS=":8458"
+export VFS_CERT_FILE_PATH="" 
+export VFS_KEY_FILE_PATH=""
+export VFS_MEDIA_DIR="public"
