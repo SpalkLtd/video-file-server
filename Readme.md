@@ -29,3 +29,7 @@ Configuration of the executable is done using with following environment variabl
 ##Build
 
 This application is built by running `go build main.go -o \<desired file name>` in the *src* directory or build and run using `go run main.go`
+
+
+##Library documentation
+Run `godoc github.com/SpalkLtd/video-file-server/src/spalkfs` to print detailed docs on the *spalkfs* package and methods it exports
