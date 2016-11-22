@@ -23,6 +23,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/dionb/uuid"
 )
 
 //copied fro http/sniff.go
@@ -365,6 +366,27 @@ func checkETag(w http.ResponseWriter, r *http.Request, modtime time.Time) (range
 // name is '/'-separated, not filepath.Separator.
 func serveFile(w http.ResponseWriter, r *http.Request, fh *fileHandler, name string, redirect bool) {
 
+	if strings.HasSuffix(r.URL.String(), "master.m3u8") {
+		var uid string
+		for _, ck := range r.Cookies() {
+			if ck.Name == "SPALK_UUID" {
+				uid = ck.Value
+				break
+			}
+		}
+		if uid == "" {
+			uid = uuid.New()
+		}
+
+		newCookie := http.Cookie{
+			Name:   "SPALK_UUID",
+			Value:  uid,
+			MaxAge: 0,
+		}
+
+		w.Header().Set("Set-Cookie", newCookie.String())
+	}
+
 	fs := fh.root
 
 	f, err := fs.Open(name)
@@ -424,8 +446,8 @@ func toHTTPError(err error) (msg string, httpStatus int) {
 // "index.html". To avoid such redirects either modify the path or
 // use ServeContent.
 func ServeFile(w http.ResponseWriter, r *http.Request, name string, s3svc *s3.S3) {
-	w.Header().set("Cache-Control", "no-cache")
-	w.Header().set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	if containsDotDot(r.URL.Path) {
 		// Too many programs use r.URL.Path to construct the argument to
 		// serveFile. Reject the request under the assumption that happened
