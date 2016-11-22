@@ -126,11 +126,11 @@ func dirList(w http.ResponseWriter, f File) {
 // Note that *os.File implements the io.ReadSeeker interface.
 func ServeContent(w http.ResponseWriter, req *http.Request, name string, modtime time.Time, content io.ReadSeeker) {
 	sizeFunc := func() (int64, error) {
-		size, err := content.Seek(0, io.SeekEnd)
+		size, err := content.Seek(0, 2) // Should be io.SeekEnd but was undefined??
 		if err != nil {
 			return 0, errSeeker
 		}
-		_, err = content.Seek(0, io.SeekStart)
+		_, err = content.Seek(0, 0) // Should be io.SeekStart but was undefined??
 		if err != nil {
 			return 0, errSeeker
 		}
@@ -171,7 +171,7 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 			var buf [sniffLen]byte
 			n, _ := io.ReadFull(content, buf[:])
 			ctype = http.DetectContentType(buf[:n])
-			_, err := content.Seek(0, io.SeekStart) // rewind to output whole file
+			_, err := content.Seek(0, 0) // Should be io.SeekStart but was undefined?? // rewind to output whole file
 			if err != nil {
 				http.Error(w, "seeker can't seek", http.StatusInternalServerError)
 				return
@@ -218,7 +218,8 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 			// A response to a request for a single range MUST NOT
 			// be sent using the multipart/byteranges media type."
 			ra := ranges[0]
-			if _, err := content.Seek(ra.start, io.SeekStart); err != nil {
+			// Should be io.SeekStart but was undefined??
+			if _, err := content.Seek(ra.start, 0); err != nil {
 				http.Error(w, err.Error(), http.StatusRequestedRangeNotSatisfiable)
 				return
 			}
@@ -241,7 +242,8 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 						pw.CloseWithError(err)
 						return
 					}
-					if _, err := content.Seek(ra.start, io.SeekStart); err != nil {
+					// Should be io.SeekStart but was undefined??
+					if _, err := content.Seek(ra.start, 0); err != nil {
 						pw.CloseWithError(err)
 						return
 					}
@@ -262,7 +264,9 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 	}
 
 	if !strings.HasSuffix(name, "m3u8") {
-		h.Set("Cache-Control", "max-age=2592000")
+		cacheUntil := time.Now().AddDate(0, 0, 30).Format(http.TimeFormat)
+		w.Header().Set("Expires",cacheUntil)
+		w.Header().Set("Cache-Control", "max-age=2592000")
 	}
 
 	w.WriteHeader(code)
@@ -479,7 +483,19 @@ func FileServer(root FileSystem, s3svc *s3.S3, bucket string) Handler {
 }
 
 func (f *fileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	w.Header().set("Cache-Control", "no-cache")
+	if r.Method == "OPTIONS" {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Headers", "x-playback-session-id")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+		cacheUntil := time.Now().Add(time.Duration(600)).Format(http.TimeFormat)
+		w.Header().Set("Expires",cacheUntil)
+		w.Header().Set("Cache-Control", "max-age=600")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Cache-Control", "no-cache")
 	upath := r.URL.Path
 	if !strings.HasPrefix(upath, "/") {
 		upath = "/" + upath
@@ -494,18 +510,22 @@ func (fh *fileHandler) GetFile(path string) (io.ReadCloser, error) {
 	}
 
 	file, fserr := fh.root.Open(path)
-	if fserr != nil {
+	if fserr == nil {
 		return file, nil
 	}
 
+	bucketParts := strings.Split(fh.bucket, "/")
+	bucketName := bucketParts[0]
+	bucketPath := strings.Join(bucketParts[1:], "/")
+
 	params := s3.GetObjectInput{
-		Bucket: aws.String(fh.bucket),
-		Key:    aws.String(path),
+		Bucket: aws.String(bucketName),
+		Key:    aws.String(bucketPath + path),
 	}
 
 	resp, s3err := fh.s3svc.GetObject(&params)
 
-	if s3err != nil {
+	if s3err == nil {
 		return resp.Body, nil
 	}
 
