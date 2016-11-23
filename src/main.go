@@ -27,8 +27,8 @@ func main() {
 
 	svc := s3.New(sess)
 
-	http.Handle("/", spalkfs.FileServer(spalkfs.Dir(os.Getenv("VFS_MEHDIA_DIR")), svc, os.Getenv("VFS_S3_BUCKET_FAILOVER")))
-	certpath, keypath := os.Getenv("LH_CERT_FILE_PATH"), os.Getenv("LH_KEY_FILE_PATH")
+	http.Handle("/", spalkfs.FileServer(spalkfs.Dir(os.Getenv("VFS_MEDIA_DIR")), svc, os.Getenv("VFS_S3_BUCKET_FAILOVER")))
+	certpath, keypath := os.Getenv("VFS_CERT_FILE_PATH"), os.Getenv("VFS_KEY_FILE_PATH")
 	if certpath == "" || keypath == "" {
 		fmt.Println("insufficient signing info found. Defaulting to http on localhost")
 		err = http.ListenAndServe(os.Getenv("VFS_HTTP_BIND_ADDRESS"), nil)
