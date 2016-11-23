@@ -537,7 +537,7 @@ func (fh *fileHandler) GetFile(path string) (io.ReadCloser, error) {
 		path = "/" + path
 	}
 
-	var fserr, s3err error = nil
+	var fserr, s3err error = nil, nil
 
 	file, fserr := fh.root.Open(path)
 	if fserr == nil {
