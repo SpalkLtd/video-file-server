@@ -391,7 +391,7 @@ func serveFile(w http.ResponseWriter, r *http.Request, fh *fileHandler, name str
 
 	f, err := fs.Open(name)
 	if err != nil {
-		if os.Getenv("SPALK_FS_DISABLE_S3_FAILOVER") != "" {
+		if os.Getenv("SPALK_FS_DISABLE_S3_FAILOVER") == "" {
 			ServeS3File(w, r, name, fh.s3svc, fh.bucket)
 		}
 		return
@@ -553,7 +553,7 @@ func (fh *fileHandler) GetFile(path string) (io.ReadCloser, error) {
 		Key:    aws.String(bucketPath + path),
 	}
 
-	if os.Getenv("SPALK_FS_DISABLE_S3_FAILOVER") != "" {
+	if os.Getenv("SPALK_FS_DISABLE_S3_FAILOVER") == "" {
 		resp, s3err := fh.s3svc.GetObject(&params)
 
 		if s3err == nil {
