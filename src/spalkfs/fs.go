@@ -563,13 +563,13 @@ func (fh *fileHandler) GetFile(path string) (io.ReadCloser, error) {
 
 	// fserr and s3err and both not null
 	if os.IsNotExist(fserr) {
-		if isS3NotFound(s3err) {
+		if s3err != nil && isS3NotFound(s3err) {
 			return nil, ErrNotFound
 		} else {
 			return nil, s3err
 		}
 	} else {
-		if isS3NotFound(s3err) || s3err == nil {
+		if s3err != nil && isS3NotFound(s3err) || s3err == nil {
 			return nil, fserr
 		} else {
 			// both are unknown errors so construct an error message for both.
