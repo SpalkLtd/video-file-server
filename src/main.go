@@ -27,7 +27,7 @@ func main() {
 
 	svc := s3.New(sess)
 
-	http.Handle("/", spalkfs.FileServer(spalkfs.Dir(os.Getenv("VFS_MEDIA_DIR")), svc, os.Getenv("VFS_S3_BUCKET_FAILOVER")))
+	http.Handle("/", getFileHandler(spalkfs.FileServer(spalkfs.Dir(os.Getenv("VFS_MEDIA_DIR")), svc, os.Getenv("VFS_S3_BUCKET_FAILOVER")), os.Getenv("VFS_URL_PREFIX")))
 	certpath, keypath := os.Getenv("VFS_CERT_FILE_PATH"), os.Getenv("VFS_KEY_FILE_PATH")
 	if certpath == "" || keypath == "" {
 		fmt.Println("insufficient signing info found. Defaulting to http on localhost")
@@ -38,4 +38,13 @@ func main() {
 	if err != nil {
 		panic(err.Error())
 	}
+}
+
+//make the standard library file server bahave with gocraft/web
+func getFileHandler(handler spalkfs.Handler, prefix string) http.Handler {
+	if prefix != "" {
+		fmt.Printf("stripping prefix: %v\n", prefix)
+		return http.StripPrefix(prefix, handler)
+	}
+	return handler
 }
