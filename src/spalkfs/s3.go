@@ -16,7 +16,7 @@ func ServeS3File(rw http.ResponseWriter, req *http.Request, name string, s3svc *
 	bucketParts := strings.Split(bucket, "/")
 	bucketName := bucketParts[0]
 	bucketPath := strings.Join(bucketParts[1:], "/")
-	fmt.Println(bucketPath  + name)
+	fmt.Println(bucketPath + name)
 	params := s3.GetObjectInput{
 		Bucket: aws.String(bucketName),
 		Key:    aws.String(bucketPath + name),
@@ -37,7 +37,7 @@ func ServeS3File(rw http.ResponseWriter, req *http.Request, name string, s3svc *
 	h := rw.Header()
 	if !strings.HasSuffix(name, "m3u8") {
 		cacheUntil := time.Now().AddDate(0, 0, 30).Format(http.TimeFormat)
-		h.Set("Expires",cacheUntil)
+		h.Set("Expires", cacheUntil)
 		h.Set("Cache-Control", "max-age=2592000")
 	}
 	h.Add("content-type", *resp.ContentType)
@@ -50,5 +50,5 @@ func ServeS3File(rw http.ResponseWriter, req *http.Request, name string, s3svc *
 }
 
 func isS3NotFound(err error) bool {
-	return err.Error()[:10] == "NoSuchKey:"
+	return err.Error()[:10] == "NoSuchKey:" || err.Error()[:22] == "NoCredentialProviders:"
 }
