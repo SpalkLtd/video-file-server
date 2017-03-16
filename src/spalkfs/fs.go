@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"mime"
 	"mime/multipart"
 	"net/http"
@@ -364,7 +365,7 @@ func checkETag(w http.ResponseWriter, r *http.Request, modtime time.Time) (range
 }
 
 // name is '/'-separated, not filepath.Separator.
-func serveFile(w http.ResponseWriter, r *http.Request, fh *fileHandler, name string, redirect bool) {
+func serveFile(w http.ResponseWriter, r *http.Request, fh *FileHandler, name string, redirect bool) {
 
 	if strings.HasSuffix(r.URL.String(), "master.m3u8") {
 		var uid string
@@ -393,6 +394,8 @@ func serveFile(w http.ResponseWriter, r *http.Request, fh *fileHandler, name str
 	if err != nil {
 		if os.Getenv("SPALK_FS_DISABLE_S3_FAILOVER") == "" {
 			ServeS3File(w, r, name, fh.s3svc, fh.bucket)
+		} else {
+			log.Println(err.Error())
 		}
 		return
 	}
@@ -459,7 +462,7 @@ func ServeFile(w http.ResponseWriter, r *http.Request, name string, s3svc *s3.S3
 		return
 	}
 	dir, file := filepath.Split(name)
-	serveFile(w, r, &fileHandler{
+	serveFile(w, r, &FileHandler{
 		root:  Dir(dir),
 		s3svc: s3svc,
 	}, file, false)
@@ -479,7 +482,7 @@ func containsDotDot(v string) bool {
 
 func isSlashRune(r rune) bool { return r == '/' || r == '\\' }
 
-type fileHandler struct {
+type FileHandler struct {
 	root   FileSystem
 	s3svc  *s3.S3
 	bucket string
@@ -487,7 +490,7 @@ type fileHandler struct {
 
 type Handler interface {
 	http.Handler
-	GetFile(name string) (io.ReadCloser, error)
+	Open(name string) (io.ReadCloser, error)
 }
 
 // FileServer returns a handler that serves HTTP requests
@@ -502,10 +505,14 @@ type Handler interface {
 // ending in "/index.html" to the same path, without the final
 // "index.html".
 func FileServer(root FileSystem, s3svc *s3.S3, bucket string) Handler {
-	return &fileHandler{root, s3svc, bucket}
+	return &FileHandler{root, s3svc, bucket}
 }
 
-func (f *fileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func New(root FileSystem, s3svc *s3.S3, bucket string) *FileHandler {
+	return &FileHandler{root, s3svc, bucket}
+}
+
+func (f *FileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	allowOrigin := os.Getenv("SPALK_FS_ORIGIN_RESTRICT")
 	if allowOrigin == "" {
 		allowOrigin = "*"
@@ -532,7 +539,11 @@ func (f *fileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	serveFile(w, r, f, path.Clean(upath), true)
 }
 
-func (fh *fileHandler) GetFile(path string) (io.ReadCloser, error) {
+func (fh *FileHandler) Open(path string) (io.ReadCloser, error) {
+	return fh.GetFile(path)
+}
+
+func (fh *FileHandler) GetFile(path string) (io.ReadCloser, error) {
 	if !strings.HasPrefix(path, "/") {
 		path = "/" + path
 	}
@@ -541,27 +552,30 @@ func (fh *fileHandler) GetFile(path string) (io.ReadCloser, error) {
 
 	file, fserr := fh.root.Open(path)
 	if fserr == nil {
+		// fmt.Printf("file: %+v\n", file)
 		return file, nil
 	}
 
-	bucketParts := strings.Split(fh.bucket, "/")
-	bucketName := bucketParts[0]
-	bucketPath := strings.Join(bucketParts[1:], "/")
-
-	params := s3.GetObjectInput{
-		Bucket: aws.String(bucketName),
-		Key:    aws.String(bucketPath + path),
-	}
-
 	if os.Getenv("SPALK_FS_DISABLE_S3_FAILOVER") == "" {
+		bucketParts := strings.Split(fh.bucket, "/")
+		bucketName := bucketParts[0]
+		bucketPath := strings.Join(bucketParts[1:], "/")
+
+		params := s3.GetObjectInput{
+			Bucket: aws.String(bucketName),
+			Key:    aws.String(bucketPath + path),
+		}
+
 		resp, s3err := fh.s3svc.GetObject(&params)
 
 		if s3err == nil {
 			return resp.Body, nil
 		}
+	} else {
+		return nil, fserr
 	}
 
-	// fserr and s3err and both not null
+	// fserr and s3err are both not null
 	if os.IsNotExist(fserr) {
 		if s3err != nil && isS3NotFound(s3err) {
 			return nil, ErrNotFound
