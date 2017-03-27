@@ -491,6 +491,7 @@ type FileHandler struct {
 type Handler interface {
 	http.Handler
 	Open(name string) (io.ReadCloser, error)
+	GetFile(path string) (io.ReadCloser, error)
 }
 
 // FileServer returns a handler that serves HTTP requests
