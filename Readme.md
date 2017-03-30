@@ -23,7 +23,7 @@ Configuration of the executable is done using with following environment variabl
 | VFS_HTTP_BIND_ADDRESS        | ":8458" | localhost:port |
 | VFS_CERT_FILE_PATH           | "" | setting both the cert and key file paths causes the application to use ssl encryption |
 | VFS_KEY_FILE_PATH            | "" |  |
-| VFS_MEDIA_DIR                | "public" | the binary should be deployed to the parent of the pblic directory where the media is stored |
+| VFS_MEDIA_DIR                | "public" | The binary should be deployed to the parent of the directory where the media is stored, in this case named public. It will also use "public" if the value is set to "." or ".." for security reasons |
 
 
 ##Build
