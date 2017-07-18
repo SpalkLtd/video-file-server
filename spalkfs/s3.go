@@ -33,6 +33,7 @@ func ServeS3File(rw http.ResponseWriter, req *http.Request, name string, s3svc *
 		}
 		return
 	}
+	defer resp.Body.Close()
 
 	h := rw.Header()
 	if !strings.HasSuffix(name, "m3u8") {
