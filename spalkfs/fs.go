@@ -24,7 +24,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/dionb/uuid"
+	"github.com/google/uuid"
 )
 
 //copied fro http/sniff.go
@@ -376,7 +376,7 @@ func serveFile(w http.ResponseWriter, r *http.Request, fh *FileHandler, name str
 			}
 		}
 		if uid == "" {
-			uid = uuid.New()
+			uid = uuid.New().String()
 		}
 
 		newCookie := http.Cookie{
