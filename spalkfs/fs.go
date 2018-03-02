@@ -391,6 +391,16 @@ func serveFile(w http.ResponseWriter, r *http.Request, fh *FileHandler, name str
 	fs := fh.root
 
 	f, err := fs.Open(name)
+
+	if err != nil && os.Getenv("SPALK_FS_DISABLE_REDIS") == "" {
+		err = ServeRedisObject(w, r, name, fh.redisSvc, fh.redisPrefix)
+		if err == nil {
+			return
+		} else {
+			log.Println(err.Error())
+		}
+	}
+
 	if err != nil {
 		if os.Getenv("SPALK_FS_DISABLE_S3_FAILOVER") == "" {
 			ServeS3File(w, r, name, fh.s3svc, fh.bucket)
@@ -549,12 +559,18 @@ func (fh *FileHandler) GetFile(path string) (io.ReadCloser, error) {
 		path = "/" + path
 	}
 
-	var fserr, s3err error = nil, nil
+	var fserr, s3err, rediserr error = nil, nil, nil
 
-	file, fserr := fh.root.Open(path)
-	if fserr == nil {
-		// fmt.Printf("file: %+v\n", file)
-		return file, nil
+	if os.Getenv("SPALK_FS_DISABLE_DISK_FS") == "" {
+		file, fserr := fh.root.Open(path)
+		if fserr == nil {
+			// fmt.Printf("file: %+v\n", file)
+			return file, nil
+		}
+	}
+
+	if os.Getenv("SPALK_FS_DISABLE_REDIS") == "" {
+
 	}
 
 	if os.Getenv("SPALK_FS_DISABLE_S3_FAILOVER") == "" {

@@ -13,6 +13,10 @@ import (
 
 func ServeS3File(rw http.ResponseWriter, req *http.Request, name string, s3svc *s3.S3, bucket string) {
 
+	if s3svc == nil {
+		return
+	}
+
 	bucketParts := strings.Split(bucket, "/")
 	bucketName := bucketParts[0]
 	bucketPath := strings.Join(bucketParts[1:], "/")
