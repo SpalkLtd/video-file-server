@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"mime"
 	"mime/multipart"
@@ -568,15 +569,23 @@ func (fh *FileHandler) GetFile(path string) (io.ReadCloser, error) {
 		path = "/" + path
 	}
 
-	var fserr, s3err error = nil, nil
-
-	file, fserr := fh.root.Open(path)
-	if fserr == nil {
-		// fmt.Printf("file: %+v\n", file)
+	file, err := fh.root.Open(path)
+	if err != nil {
+		log.Println(err)
+	} else {
 		return file, nil
 	}
 
-	if os.Getenv("SPALK_FS_DISABLE_S3_FAILOVER") == "" {
+	if os.Getenv("SPALK_FS_DISABLE_REDIS") == "" && fh.redisClient != nil {
+		f, err := fh.redisClient.Get(path).Result()
+		if err != nil {
+			log.Println(err)
+		} else {
+			return ioutil.NopCloser(strings.NewReader(f)), nil
+		}
+	}
+
+	if os.Getenv("SPALK_FS_DISABLE_S3_FAILOVER") == "" && fh.s3svc != nil {
 		bucketParts := strings.Split(fh.bucket, "/")
 		bucketName := bucketParts[0]
 		bucketPath := strings.Join(bucketParts[1:], "/")
@@ -586,32 +595,16 @@ func (fh *FileHandler) GetFile(path string) (io.ReadCloser, error) {
 			Key:    aws.String(bucketPath + path),
 		}
 
-		resp, s3err := fh.s3svc.GetObject(&params)
+		resp, err := fh.s3svc.GetObject(&params)
 
-		if s3err == nil {
+		if err != nil {
+			log.Println(err)
+		} else {
 			return resp.Body, nil
 		}
-	} else {
-		return nil, fserr
 	}
 
-	// fserr and s3err are both not null
-	if os.IsNotExist(fserr) {
-		if s3err != nil && isS3NotFound(s3err) {
-			return nil, ErrNotFound
-		} else {
-			return nil, s3err
-		}
-	} else {
-		if s3err != nil && isS3NotFound(s3err) || s3err == nil {
-			return nil, fserr
-		} else {
-			// both are unknown errors so construct an error message for both.
-			return nil, errors.New(fmt.Sprintf("File System Error:\n%s\n\nS3 Error:\n%s", fserr, s3err))
-		}
-	}
-
-	return nil, nil
+	return nil, errors.New("Unable to retrieve file")
 }
 
 // httpRange specifies the byte range to be sent to the client.
