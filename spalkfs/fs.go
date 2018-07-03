@@ -24,6 +24,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/go-redis/redis"
 	"github.com/google/uuid"
 )
 
@@ -151,7 +152,7 @@ var errSeeker = errors.New("seeker can't seek")
 // if modtime.IsZero(), modtime is unknown.
 // content must be seeked to the beginning of the file.
 // The sizeFunc is called at most once. Its error, if any, is sent in the HTTP response.
-func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime time.Time, sizeFunc func() (int64, error), content io.ReadSeeker) {
+func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime time.Time, sizeFunc func() (int64, error), content io.ReadSeeker) (err error) {
 	if checkLastModified(w, r, modtime) {
 		return
 	}
@@ -173,9 +174,9 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 			var buf [sniffLen]byte
 			n, _ := io.ReadFull(content, buf[:])
 			ctype = http.DetectContentType(buf[:n])
-			_, err := content.Seek(0, 0) // Should be io.SeekStart but was undefined?? // rewind to output whole file
+			_, err = content.Seek(0, 0) // Should be io.SeekStart but was undefined?? // rewind to output whole file
 			if err != nil {
-				http.Error(w, "seeker can't seek", http.StatusInternalServerError)
+				log.Println(err)
 				return
 			}
 		}
@@ -186,7 +187,7 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 
 	size, err := sizeFunc()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Println(err)
 		return
 	}
 
@@ -196,8 +197,8 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 	if size >= 0 {
 		ranges, err := parseRange(rangeReq, size)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusRequestedRangeNotSatisfiable)
-			return
+			log.Println(err)
+			return err
 		}
 		if sumRangesSize(ranges) > size {
 			// The total number of bytes in all the ranges
@@ -222,8 +223,8 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 			ra := ranges[0]
 			// Should be io.SeekStart but was undefined??
 			if _, err := content.Seek(ra.start, 0); err != nil {
-				http.Error(w, err.Error(), http.StatusRequestedRangeNotSatisfiable)
-				return
+				log.Println(err)
+				return err
 			}
 			sendSize = ra.length
 			code = http.StatusPartialContent
@@ -276,6 +277,8 @@ func serveContent(w http.ResponseWriter, r *http.Request, name string, modtime t
 	if r.Method != "HEAD" {
 		io.CopyN(w, sendContent, sendSize)
 	}
+
+	return
 }
 
 var unixEpochTime = time.Unix(0, 0)
@@ -365,8 +368,9 @@ func checkETag(w http.ResponseWriter, r *http.Request, modtime time.Time) (range
 }
 
 // name is '/'-separated, not filepath.Separator.
+// @TODO Log to Errbit if errors are not along the lines of "not found"
 func serveFile(w http.ResponseWriter, r *http.Request, fh *FileHandler, name string, redirect bool) {
-
+	log.Println("Requested:", name)
 	if strings.HasSuffix(r.URL.String(), "master.m3u8") {
 		var uid string
 		for _, ck := range r.Cookies() {
@@ -391,33 +395,47 @@ func serveFile(w http.ResponseWriter, r *http.Request, fh *FileHandler, name str
 	fs := fh.root
 
 	f, err := fs.Open(name)
-	if err != nil {
-		if os.Getenv("SPALK_FS_DISABLE_S3_FAILOVER") == "" {
-			ServeS3File(w, r, name, fh.s3svc, fh.bucket)
+	if err == nil {
+		defer f.Close()
+
+		//don't deal with directories. This is for serving media files only
+		if d, fserr := f.Stat(); fserr == nil && !d.IsDir() {
+			// serveContent will check modification time
+			sizeFunc := func() (int64, error) { return d.Size(), nil }
+			serveErr := serveContent(w, r, d.Name(), d.ModTime(), sizeFunc, f)
+			if serveErr != nil {
+				log.Println(serveErr)
+			} else {
+				return
+			}
 		} else {
-			log.Println(err.Error())
+			log.Println(fserr)
 		}
-		return
-	}
-	defer f.Close()
-
-	d, err := f.Stat()
-	if err != nil {
-		msg, code := toHTTPError(err)
-		http.Error(w, msg, code)
-		return
+	} else {
+		log.Println(err)
 	}
 
-	//don't deal with directories. This is for serving media files only
-	if d.IsDir() {
-		msg, code := toHTTPError(os.ErrNotExist)
-		http.Error(w, msg, code)
-		return
+	if os.Getenv("SPALK_FS_DISABLE_REDIS") == "" && fh.redisClient != nil {
+		err = ServeRedisFile(w, r, name, fh.redisClient)
+		if err != nil {
+			log.Println(err)
+		} else {
+			return
+		}
+
 	}
 
-	// serveContent will check modification time
-	sizeFunc := func() (int64, error) { return d.Size(), nil }
-	serveContent(w, r, d.Name(), d.ModTime(), sizeFunc, f)
+	if os.Getenv("SPALK_FS_DISABLE_S3_FAILOVER") == "" && fh.s3svc != nil {
+		err = ServeS3File(w, r, name, fh.s3svc, fh.bucket)
+		if err != nil {
+			log.Println(err)
+		} else {
+			return
+		}
+	}
+
+	http.Error(w, "Not Found", http.StatusNotFound)
+	return
 }
 
 // toHTTPError returns a non-specific HTTP error message and status code
@@ -483,9 +501,10 @@ func containsDotDot(v string) bool {
 func isSlashRune(r rune) bool { return r == '/' || r == '\\' }
 
 type FileHandler struct {
-	root   FileSystem
-	s3svc  *s3.S3
-	bucket string
+	root        FileSystem
+	redisClient *redis.Client
+	s3svc       *s3.S3
+	bucket      string
 }
 
 type Handler interface {
@@ -505,12 +524,12 @@ type Handler interface {
 // As a special case, the returned file server redirects any request
 // ending in "/index.html" to the same path, without the final
 // "index.html".
-func FileServer(root FileSystem, s3svc *s3.S3, bucket string) Handler {
-	return &FileHandler{root, s3svc, bucket}
+func FileServer(root FileSystem, rClient *redis.Client, s3svc *s3.S3, bucket string) Handler {
+	return &FileHandler{root, rClient, s3svc, bucket}
 }
 
-func New(root FileSystem, s3svc *s3.S3, bucket string) *FileHandler {
-	return &FileHandler{root, s3svc, bucket}
+func New(root FileSystem, rClient *redis.Client, s3svc *s3.S3, bucket string) *FileHandler {
+	return &FileHandler{root, rClient, s3svc, bucket}
 }
 
 func (f *FileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {

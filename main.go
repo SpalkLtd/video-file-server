@@ -5,11 +5,13 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/SpalkLtd/video-file-server/spalkfs"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/go-redis/redis"
 	gobrake "gopkg.in/airbrake/gobrake.v2"
 )
 
@@ -43,7 +45,18 @@ func main() {
 		return
 	}
 
-	http.Handle("/", getFileHandler(spalkfs.FileServer(spalkfs.Dir(mediaDir), svc, os.Getenv("VFS_S3_BUCKET_FAILOVER")), os.Getenv("VFS_URL_PREFIX")))
+	redisTTL, _ := strconv.Atoi(os.Getenv("MS_REDIS_TTL"))
+	if redisTTL == 0 {
+		redisTTL = 20
+	}
+
+	rClient := redis.NewClient(&redis.Options{
+		Addr:     os.Getenv("REDIS_HOST") + ":" + os.Getenv("REDIS_PORT"),
+		Password: os.Getenv("REDIS_PASSWORD"),
+		DB:       0, // Default
+	})
+
+	http.Handle("/", getFileHandler(spalkfs.FileServer(spalkfs.Dir(mediaDir), rClient, svc, os.Getenv("VFS_S3_BUCKET_FAILOVER")), os.Getenv("VFS_URL_PREFIX")))
 	certpath, keypath := os.Getenv("VFS_CERT_FILE_PATH"), os.Getenv("VFS_KEY_FILE_PATH")
 	if certpath == "" || keypath == "" {
 		fmt.Println("insufficient signing info found. Defaulting to http on localhost")
