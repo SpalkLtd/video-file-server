@@ -1,8 +1,8 @@
 package spalkfs
 
 import (
-	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -11,12 +11,11 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 )
 
-func ServeS3File(rw http.ResponseWriter, req *http.Request, name string, s3svc *s3.S3, bucket string) {
-
+func ServeS3File(rw http.ResponseWriter, req *http.Request, name string, s3svc *s3.S3, bucket string) (err error) {
 	bucketParts := strings.Split(bucket, "/")
 	bucketName := bucketParts[0]
 	bucketPath := strings.Join(bucketParts[1:], "/")
-	fmt.Println(bucketPath + name)
+	log.Println(bucketPath + name)
 	params := s3.GetObjectInput{
 		Bucket: aws.String(bucketName),
 		Key:    aws.String(bucketPath + name),
@@ -25,12 +24,7 @@ func ServeS3File(rw http.ResponseWriter, req *http.Request, name string, s3svc *
 	resp, err := s3svc.GetObject(&params)
 
 	if err != nil {
-		fmt.Println(err.Error())
-		if isS3NotFound(err) {
-			http.Error(rw, "Not Found", http.StatusNotFound)
-		} else {
-			http.Error(rw, "Internal Server Error", http.StatusInternalServerError)
-		}
+		log.Println(err)
 		return
 	}
 
@@ -43,10 +37,11 @@ func ServeS3File(rw http.ResponseWriter, req *http.Request, name string, s3svc *
 	h.Add("content-type", *resp.ContentType)
 	_, err = io.Copy(rw, resp.Body)
 	if err != nil {
-		fmt.Println(err.Error())
-		http.Error(rw, "Internal Server Error", http.StatusInternalServerError)
+		log.Println(err)
 		return
 	}
+
+	return
 }
 
 func isS3NotFound(err error) bool {
