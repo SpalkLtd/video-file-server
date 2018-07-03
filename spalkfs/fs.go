@@ -415,7 +415,7 @@ func serveFile(w http.ResponseWriter, r *http.Request, fh *FileHandler, name str
 		log.Println(err)
 	}
 
-	if os.Getenv("SPALK_FS_DISABLE_REDIS") == "" {
+	if os.Getenv("SPALK_FS_DISABLE_REDIS") == "" && fh.redisClient != nil {
 		err = ServeRedisFile(w, r, name, fh.redisClient)
 		if err != nil {
 			log.Println(err)
@@ -425,7 +425,7 @@ func serveFile(w http.ResponseWriter, r *http.Request, fh *FileHandler, name str
 
 	}
 
-	if os.Getenv("SPALK_FS_DISABLE_S3_FAILOVER") == "" {
+	if os.Getenv("SPALK_FS_DISABLE_S3_FAILOVER") == "" && fh.s3svc != nil {
 		err = ServeS3File(w, r, name, fh.s3svc, fh.bucket)
 		if err != nil {
 			log.Println(err)
