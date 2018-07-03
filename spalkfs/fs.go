@@ -577,7 +577,8 @@ func (fh *FileHandler) GetFile(path string) (io.ReadCloser, error) {
 	}
 
 	if os.Getenv("SPALK_FS_DISABLE_REDIS") == "" && fh.redisClient != nil {
-		f, err := fh.redisClient.Get(path).Result()
+		prefix := os.Getenv("LH_FS_URL_PREFIX")
+		f, err := fh.redisClient.Get(prefix + path).Result()
 		if err != nil {
 			log.Println(err)
 		} else {
