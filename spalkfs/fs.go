@@ -416,9 +416,8 @@ func serveFile(w http.ResponseWriter, r *http.Request, fh *FileHandler, name str
 		log.Println(err)
 	}
 
-	prefix := os.Getenv("LH_FS_URL_PREFIX")
 	if os.Getenv("SPALK_FS_DISABLE_REDIS") == "" && fh.redisClient != nil {
-		err = ServeRedisFile(w, r, prefix+name, fh.redisClient)
+		err = ServeRedisFile(w, r, name, fh.redisClient)
 		if err != nil {
 			log.Println(err)
 		} else {
