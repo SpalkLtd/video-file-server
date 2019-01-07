@@ -7,12 +7,12 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/SpalkLtd/gobrake"
 	"github.com/SpalkLtd/video-file-server/spalkfs"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/go-redis/redis"
-	gobrake "gopkg.in/airbrake/gobrake.v2"
 )
 
 func main() {
