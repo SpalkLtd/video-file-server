@@ -5,6 +5,7 @@
 package spalkfs
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -577,7 +578,7 @@ func (fh *FileHandler) GetFile(path string) (io.ReadCloser, error) {
 	}
 
 	if os.Getenv("SPALK_FS_DISABLE_REDIS") == "" && fh.redisClient != nil {
-		f, err := fh.redisClient.Get(path).Result()
+		f, err := fh.redisClient.Get(context.Background(), path).Result()
 		if err != nil {
 			log.Println(err)
 		} else {

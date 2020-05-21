@@ -1,6 +1,7 @@
 package spalkfs
 
 import (
+	"context"
 	"log"
 	"net/http"
 
@@ -8,7 +9,7 @@ import (
 )
 
 func ServeRedisFile(rw http.ResponseWriter, req *http.Request, path string, client *redis.Client) (err error) {
-	f, err := client.Get(path).Result()
+	f, err := client.Get(context.Background(), path).Result()
 	if err != nil {
 		log.Println(err)
 		return
