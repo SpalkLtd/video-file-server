@@ -7,17 +7,20 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/SpalkLtd/gobrake"
 	"github.com/SpalkLtd/video-file-server/spalkfs"
+	"github.com/airbrake/gobrake/v5"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/go-redis/redis"
+	"github.com/go-redis/redis/v8"
 )
 
 func main() {
-	airbrake := gobrake.NewNotifier(1234567, os.Getenv("VFS_ERRBIT_KEY"))
-	airbrake.SetHost(os.Getenv("ERRBIT_HOST"))
+	airbrake := gobrake.NewNotifierWithOptions(&gobrake.NotifierOptions{
+		ProjectId:  1234567,
+		ProjectKey: os.Getenv("VFS_ERRBIT_KEY"),
+		Host:       os.Getenv("ERRBIT_HOST"),
+	})
 	defer airbrake.NotifyOnPanic()
 	defer airbrake.Close()
 

@@ -5,7 +5,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/go-redis/redis"
+	"github.com/go-redis/redis/v8"
 )
 
 func ServeRedisFile(rw http.ResponseWriter, req *http.Request, path string, client *redis.Client) (err error) {
